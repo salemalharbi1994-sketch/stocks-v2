@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>منصة التحليل الفني - LIVE</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { font-family: 'Tajawal', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+  .mono, .mono * { font-family: 'JetBrains Mono', ui-monospace, monospace !important; }
+  body { background: #09090b; color: #f4f4f5; margin: 0; }
+  select { background-image: none !important; }
+  .tab-active {
+    background: linear-gradient(135deg, #fbbf24, #d97706);
+    color: #09090b;
+    box-shadow: 0 4px 14px 0 rgba(251, 191, 36, 0.3);
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { scrollbar-width: none; }
+  .glow-emerald { box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); }
+  .glow-rose { box-shadow: 0 0 20px rgba(244, 63, 94, 0.15); }
+  .glow-amber { box-shadow: 0 0 20px rgba(251, 191, 36, 0.15); }
+  @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+  .pulse-dot { animation: pulse-soft 2s ease-in-out infinite; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .slide-in { animation: slideIn 0.3s ease-out; }
+  @keyframes pulse-live { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 50% { opacity: 1; box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); } }
+  .live-dot { animation: pulse-live 1.5s ease-in-out infinite; }
+  input[type="range"] { -webkit-appearance: none; height: 6px; background: #27272a; border-radius: 3px; outline: none; }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px;
+    background: linear-gradient(135deg, #fbbf24, #d97706);
+    border-radius: 50%; cursor: pointer; box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);
+  }
+  .skeleton { background: linear-gradient(90deg, #18181b 0%, #27272a 50%, #18181b 100%); background-size: 200% 100%; animation: skeleton 1.5s infinite; }
+  @keyframes skeleton { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+// ============ MARKETS ============
+// Yahoo symbols: Saudi stocks use .SR suffix
+const SAUDI_STOCKS = [
+  { code: '2222', yahoo: '2222.SR', name: 'أرامكو السعودية', en: 'Aramco', sector: 'طاقة', base: 28.5, trend: -0.1, vol: 1.2, seed: 222 },
+  { code: '1120', yahoo: '1120.SR', name: 'مصرف الراجحي', en: 'Al Rajhi', sector: 'بنوك إسلامية', base: 96.0, trend: 0.25, vol: 1.6, seed: 112 },
+  { code: '2010', yahoo: '2010.SR', name: 'سابك', en: 'SABIC', sector: 'بتروكيماويات', base: 72.0, trend: -0.3, vol: 1.8, seed: 201 },
+  { code: '7010', yahoo: '7010.SR', name: 'الاتصالات السعودية', en: 'STC', sector: 'اتصالات', base: 41.0, trend: 0.15, vol: 1.4, seed: 701 },
+  { code: '1211', yahoo: '1211.SR', name: 'معادن', en: 'Maaden', sector: 'تعدين', base: 56.5, trend: 0.4, vol: 2.5, seed: 121 },
+  { code: '1150', yahoo: '1150.SR', name: 'مصرف الإنماء', en: 'Alinma', sector: 'بنوك إسلامية', base: 30.2, trend: 0.2, vol: 1.5, seed: 115 },
+  { code: '2280', yahoo: '2280.SR', name: 'المراعي', en: 'Almarai', sector: 'أغذية', base: 53.0, trend: 0.1, vol: 1.3, seed: 228 },
+  { code: '4190', yahoo: '4190.SR', name: 'جرير', en: 'Jarir', sector: 'تجزئة', base: 13.4, trend: -0.2, vol: 1.7, seed: 419 },
+  { code: '1140', yahoo: '1140.SR', name: 'بنك البلاد', en: 'Albilad', sector: 'بنوك إسلامية', base: 32.8, trend: 0.3, vol: 1.6, seed: 114 },
+  { code: '1020', yahoo: '1020.SR', name: 'بنك الجزيرة', en: 'BJAZ', sector: 'بنوك إسلامية', base: 19.6, trend: 0.05, vol: 1.4, seed: 102 },
+  { code: '4001', yahoo: '4001.SR', name: 'أسواق العثيم', en: 'Othaim', sector: 'تجزئة', base: 11.8, trend: 0.0, vol: 1.5, seed: 400 },
+  { code: '4007', yahoo: '4007.SR', name: 'سليمان الحبيب', en: 'HMG', sector: 'صحة', base: 280.0, trend: 0.35, vol: 2.0, seed: 407 },
+  { code: '2290', yahoo: '2290.SR', name: 'ينساب', en: 'Yansab', sector: 'بتروكيماويات', base: 36.5, trend: -0.15, vol: 1.6, seed: 229 },
+  { code: '4003', yahoo: '4003.SR', name: 'إكسترا', en: 'Extra', sector: 'تجزئة', base: 95.0, trend: 0.2, vol: 2.2, seed: 403 },
+  { code: '8010', yahoo: '8010.SR', name: 'التعاونية', en: 'Tawuniya', sector: 'تأمين', base: 144.0, trend: 0.1, vol: 1.9, seed: 801 },
+];
+
+const US_STOCKS = [
+  { code: 'AAPL', yahoo: 'AAPL', name: 'Apple', ar: 'آبل', sector: 'تقنية', base: 225, trend: 0.2, vol: 1.5, seed: 100 },
+  { code: 'MSFT', yahoo: 'MSFT', name: 'Microsoft', ar: 'مايكروسوفت', sector: 'تقنية', base: 420, trend: 0.3, vol: 1.4, seed: 101 },
+  { code: 'GOOGL', yahoo: 'GOOGL', name: 'Alphabet', ar: 'جوجل', sector: 'تقنية', base: 175, trend: 0.25, vol: 1.6, seed: 102 },
+  { code: 'AMZN', yahoo: 'AMZN', name: 'Amazon', ar: 'أمازون', sector: 'تجزئة/تقنية', base: 195, trend: 0.3, vol: 1.7, seed: 103 },
+  { code: 'META', yahoo: 'META', name: 'Meta Platforms', ar: 'ميتا', sector: 'تقنية', base: 565, trend: 0.4, vol: 2.2, seed: 104 },
+  { code: 'NVDA', yahoo: 'NVDA', name: 'NVIDIA', ar: 'إنفيديا', sector: 'أشباه موصلات', base: 138, trend: 0.6, vol: 3.0, seed: 105 },
+  { code: 'TSLA', yahoo: 'TSLA', name: 'Tesla', ar: 'تسلا', sector: 'سيارات', base: 248, trend: 0.1, vol: 3.5, seed: 106 },
+  { code: 'AMD', yahoo: 'AMD', name: 'AMD', ar: 'إيه إم دي', sector: 'أشباه موصلات', base: 165, trend: 0.3, vol: 2.8, seed: 107 },
+  { code: 'NFLX', yahoo: 'NFLX', name: 'Netflix', ar: 'نتفليكس', sector: 'ترفيه', base: 720, trend: 0.35, vol: 2.4, seed: 108 },
+  { code: 'AVGO', yahoo: 'AVGO', name: 'Broadcom', ar: 'برودكوم', sector: 'أشباه موصلات', base: 175, trend: 0.45, vol: 2.5, seed: 109 },
+  { code: 'JPM', yahoo: 'JPM', name: 'JPMorgan', ar: 'جي بي مورجان', sector: 'بنوك', base: 220, trend: 0.2, vol: 1.5, seed: 110 },
+  { code: 'V', yahoo: 'V', name: 'Visa', ar: 'فيزا', sector: 'مدفوعات', base: 285, trend: 0.15, vol: 1.3, seed: 111 },
+  { code: 'MA', yahoo: 'MA', name: 'Mastercard', ar: 'ماستركارد', sector: 'مدفوعات', base: 510, trend: 0.2, vol: 1.4, seed: 113 },
+  { code: 'BAC', yahoo: 'BAC', name: 'Bank of America', ar: 'بنك أوف أمريكا', sector: 'بنوك', base: 44, trend: 0.15, vol: 1.7, seed: 114 },
+  { code: 'WMT', yahoo: 'WMT', name: 'Walmart', ar: 'وول مارت', sector: 'تجزئة', base: 82, trend: 0.25, vol: 1.2, seed: 115 },
+  { code: 'COST', yahoo: 'COST', name: 'Costco', ar: 'كوستكو', sector: 'تجزئة', base: 895, trend: 0.3, vol: 1.5, seed: 116 },
+  { code: 'NKE', yahoo: 'NKE', name: 'Nike', ar: 'نايكي', sector: 'ملابس', base: 78, trend: -0.2, vol: 1.8, seed: 117 },
+  { code: 'KO', yahoo: 'KO', name: 'Coca-Cola', ar: 'كوكاكولا', sector: 'مشروبات', base: 65, trend: 0.05, vol: 1.0, seed: 118 },
+  { code: 'MCD', yahoo: 'MCD', name: "McDonald's", ar: 'ماكدونالدز', sector: 'مطاعم', base: 295, trend: 0.1, vol: 1.3, seed: 119 },
+  { code: 'LLY', yahoo: 'LLY', name: 'Eli Lilly', ar: 'إيلي ليلي', sector: 'أدوية', base: 815, trend: 0.4, vol: 2.0, seed: 120 },
+  { code: 'JNJ', yahoo: 'JNJ', name: 'Johnson & Johnson', ar: 'جونسون', sector: 'أدوية', base: 158, trend: 0.05, vol: 1.2, seed: 121 },
+  { code: 'XOM', yahoo: 'XOM', name: 'ExxonMobil', ar: 'إكسون موبيل', sector: 'طاقة', base: 118, trend: 0.1, vol: 1.6, seed: 122 },
+  { code: 'CVX', yahoo: 'CVX', name: 'Chevron', ar: 'شيفرون', sector: 'طاقة', base: 158, trend: 0.05, vol: 1.5, seed: 123 },
+  { code: 'BA', yahoo: 'BA', name: 'Boeing', ar: 'بوينج', sector: 'طيران', base: 165, trend: -0.1, vol: 2.5, seed: 124 },
+  { code: 'SPY', yahoo: 'SPY', name: 'S&P 500 ETF', ar: 'إس آند بي 500', sector: 'مؤشر', base: 580, trend: 0.2, vol: 1.0, seed: 125 },
+  { code: 'QQQ', yahoo: 'QQQ', name: 'Nasdaq 100 ETF', ar: 'ناسداك 100', sector: 'مؤشر', base: 495, trend: 0.25, vol: 1.3, seed: 126 },
+];
+
+let state = {
+  market: 'us',
+  tab: 'analyze',
+  code: 'AAPL',
+  custom: '',
+  showInput: false,
+  capital: 50000,
+  riskPct: 2,
+  scannerMin: 5,
+  compareCodes: ['AAPL', 'MSFT', 'NVDA', 'TSLA'],
+  search: '',
+  alerts: JSON.parse(localStorage.getItem('priceAlerts') || '[]'),
+  liveMode: localStorage.getItem('liveMode') === 'true',
+  liveCache: {},
+  loading: {},
+  lastFetch: {},
+  customStocks: JSON.parse(localStorage.getItem('customStocks') || '{"sa":[],"us":[]}'),
+  showAddStock: false,
+};
+
+function getStocks() {
+  const base = state.market === 'sa' ? SAUDI_STOCKS : US_STOCKS;
+  const custom = state.customStocks[state.market] || [];
+  return [...base, ...custom];
+}
+function getCurrency() { return state.market === 'sa' ? 'ريال' : '$'; }
+function getMarketName() { return state.market === 'sa' ? 'تداول السعودي' : 'الأسواق الأمريكية'; }
+function getMarketIndex() { return state.market === 'sa' ? 'TASI' : 'S&P 500'; }
+
+function switchMarket(m) {
+  state.market = m;
+  if (m === 'sa') { state.code = '1120'; state.compareCodes = ['1120', '2222', '2010', '1211']; }
+  else { state.code = 'AAPL'; state.compareCodes = ['AAPL', 'MSFT', 'NVDA', 'TSLA']; }
+  state.custom = '';
+  state.search = '';
+  render();
+}
+
+// ============ LIVE DATA FETCHER ============
+async function fetchLiveData(code) {
+  const stock = [
+    ...SAUDI_STOCKS,
+    ...US_STOCKS,
+    ...(state.customStocks.sa || []),
+    ...(state.customStocks.us || [])
+  ].find(s => s.code === code);
+  if (!stock) return null;
+
+  // Cache for 60 seconds
+  const cached = state.liveCache[code];
+  const lastFetch = state.lastFetch[code] || 0;
+  if (cached && (Date.now() - lastFetch) < 60000) return cached;
+
+  try {
+    state.loading[code] = true;
+    const response = await fetch(`/api/stock?symbol=${stock.yahoo}&range=3mo&interval=1d`);
+    if (!response.ok) throw new Error('API failed');
+    const data = await response.json();
+    if (data.ohlc && data.ohlc.length >= 30) {
+      state.liveCache[code] = data;
+      state.lastFetch[code] = Date.now();
+      state.loading[code] = false;
+      return data;
+    }
+    throw new Error('Insufficient data');
+  } catch (error) {
+    console.error('Live fetch failed for', code, error);
+    state.loading[code] = false;
+    return null;
+  }
+}
+
+// ============ DATA GENERATION (FALLBACK) ============
+function generateSeries(stock) {
+  let s = stock.seed;
+  const rand = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const data = [];
+  let p = stock.base * (1 - stock.trend * 0.15);
+  for (let i = 0; i < 60; i++) {
+    const cyc = Math.sin(i / 4) * (stock.vol * 0.4);
+    const noise = (rand() - 0.5) * stock.vol;
+    const drift = stock.trend * (0.6 + rand() * 0.8);
+    const open = p;
+    p = Math.max(p * (1 + (drift + cyc + noise) / 100), 0.5);
+    const close = p;
+    const high = Math.max(open, close) * (1 + rand() * 0.008);
+    const low = Math.min(open, close) * (1 - rand() * 0.008);
+    const volume = Math.round(500000 + rand() * 2500000);
+    data.push({
+      open: +open.toFixed(2), close: +close.toFixed(2),
+      high: +high.toFixed(2), low: +low.toFixed(2), volume
+    });
+  }
+  return data;
+}
+
+// ============ INDICATORS ============
+const sma = (arr, n) => arr.length < n ? null : arr.slice(-n).reduce((a, b) => a + b, 0) / n;
+
+const emaArr = (arr, n) => {
+  if (arr.length < n) return [];
+  const k = 2 / (n + 1);
+  const r = new Array(arr.length).fill(null);
+  let e = arr.slice(0, n).reduce((a, b) => a + b, 0) / n;
+  r[n - 1] = e;
+  for (let i = n; i < arr.length; i++) { e = arr[i] * k + e * (1 - k); r[i] = e; }
+  return r;
+};
+
+const ema = (arr, n) => { const e = emaArr(arr, n); return e[e.length - 1]; };
+
+function calcRSI(p, period = 14) {
+  if (p.length < period + 1) return null;
+  let g = 0, l = 0;
+  for (let i = p.length - period; i < p.length; i++) {
+    const d = p[i] - p[i - 1];
+    if (d >= 0) g += d; else l -= d;
+  }
+  const ag = g / period, al = l / period;
+  if (al === 0) return 100;
+  return 100 - 100 / (1 + ag / al);
+}
+
+function calcMACD(p) {
+  if (p.length < 26) return { macd: null, signal: null, hist: null };
+  const e12 = emaArr(p, 12), e26 = emaArr(p, 26);
+  const macdLine = p.map((_, i) => (e12[i] != null && e26[i] != null) ? e12[i] - e26[i] : null);
+  const valid = macdLine.filter(x => x != null);
+  const sigArr = emaArr(valid, 9);
+  return { macd: macdLine[macdLine.length - 1], signal: sigArr[sigArr.length - 1], hist: macdLine[macdLine.length - 1] - sigArr[sigArr.length - 1] };
+}
+
+function calcATR(o, period = 14) {
+  if (o.length < period + 1) return null;
+  const trs = [];
+  for (let i = 1; i < o.length; i++) {
+    trs.push(Math.max(o[i].high - o[i].low, Math.abs(o[i].high - o[i-1].close), Math.abs(o[i].low - o[i-1].close)));
+  }
+  return sma(trs, period);
+}
+
+function calcADX(o, period = 14) {
+  if (o.length < period * 2) return null;
+  const trs = [], pDM = [], mDM = [];
+  for (let i = 1; i < o.length; i++) {
+    const up = o[i].high - o[i-1].high, dn = o[i-1].low - o[i].low;
+    pDM.push(up > dn && up > 0 ? up : 0);
+    mDM.push(dn > up && dn > 0 ? dn : 0);
+    trs.push(Math.max(o[i].high - o[i].low, Math.abs(o[i].high - o[i-1].close), Math.abs(o[i].low - o[i-1].close)));
+  }
+  const atr = sma(trs.slice(-period), period);
+  if (!atr) return null;
+  const pDI = 100 * sma(pDM.slice(-period), period) / atr;
+  const mDI = 100 * sma(mDM.slice(-period), period) / atr;
+  if (pDI + mDI === 0) return 0;
+  return 100 * Math.abs(pDI - mDI) / (pDI + mDI);
+}
+
+function calcVWAP(o) {
+  const r = o.slice(-20);
+  let pv = 0, v = 0;
+  r.forEach(d => { const tp = (d.high + d.low + d.close) / 3; pv += tp * (d.volume || 1); v += (d.volume || 1); });
+  return v > 0 ? pv / v : null;
+}
+
+function calcOBV(o) {
+  let obv = 0;
+  for (let i = 1; i < o.length; i++) {
+    if (o[i].close > o[i-1].close) obv += (o[i].volume || 0);
+    else if (o[i].close < o[i-1].close) obv -= (o[i].volume || 0);
+  }
+  return obv;
+}
+
+function calcSuper(o) {
+  const atr = calcATR(o, 10);
+  if (!atr) return { value: null, dir: null };
+  const last = o[o.length - 1];
+  const mid = (last.high + last.low) / 2;
+  const dir = last.close > mid ? 'صاعد' : 'هابط';
+  return { value: dir === 'صاعد' ? mid - 3 * atr : mid + 3 * atr, dir };
+}
+
+function pivots(h, l, c) {
+  const p = (h + l + c) / 3;
+  return { p, r1: 2*p - l, s1: 2*p - h, r2: p + (h - l), s2: p - (h - l), r3: h + 2*(p - l), s3: l - 2*(h - p) };
+}
+
+function fib(h, l) {
+  const d = h - l;
+  return { f0: h, f50: h - d * 0.5, f618: h - d * 0.618, f786: h - d * 0.786, f100: l };
+}
+
+function analyze(o) {
+  if (!o || o.length < 30) return null;
+  const c = o.map(d => d.close);
+  const last = c[c.length - 1], prev = c[c.length - 2];
+  const recent = o.slice(-20);
+  const high = Math.max(...recent.map(d => d.high));
+  const low = Math.min(...recent.map(d => d.low));
+  const change = last - prev;
+  const changePct = (change / prev) * 100;
+  const ma9 = sma(c, 9), ma20 = sma(c, 20);
+  const ema200 = ema(c, Math.min(200, c.length));
+  const rsi = calcRSI(c);
+  const macd = calcMACD(c);
+  const atr = calcATR(o);
+  const adx = calcADX(o);
+  const vwap = calcVWAP(o);
+  const obv = calcOBV(o);
+  const st = calcSuper(o);
+  const piv = pivots(high, low, last);
+  const fibs = fib(high, low);
+
+  let score = 0;
+  const checks = [];
+  const trUp = ma9 > ma20; if (trUp) score++;
+  checks.push({ pass: trUp, value: trUp ? 'صاعد' : 'هابط' });
+  const aE200 = ema200 && last > ema200; if (aE200) score++;
+  checks.push({ pass: !!aE200, value: aE200 ? 'فوق' : 'تحت' });
+  const mB = macd.hist > 0; if (mB) score++;
+  checks.push({ pass: mB, value: mB ? 'شراء' : 'بيع' });
+  const rOk = rsi >= 40 && rsi <= 70; if (rOk) score++;
+  checks.push({ pass: rOk, value: rsi > 70 ? 'تشبع شرائي' : rsi < 30 ? 'تشبع بيعي' : 'صحي' });
+  const aV = last > vwap; if (aV) score++;
+  checks.push({ pass: aV, value: aV ? 'فوق' : 'تحت' });
+  const sB = st.dir === 'صاعد'; if (sB) score++;
+  checks.push({ pass: sB, value: st.dir });
+  const sT = adx > 25; if (sT) score++;
+  checks.push({ pass: sT, value: sT ? 'اتجاه قوي' : 'ضعيف' });
+  const r10 = o.slice(-10), o10 = o.slice(-20, -10);
+  let oR = 0, oO = 0;
+  for (let i = 1; i < r10.length; i++) {
+    if (r10[i].close > r10[i-1].close) oR += (r10[i].volume || 0);
+    else if (r10[i].close < r10[i-1].close) oR -= (r10[i].volume || 0);
+  }
+  for (let i = 1; i < o10.length; i++) {
+    if (o10[i].close > o10[i-1].close) oO += (o10[i].volume || 0);
+    else if (o10[i].close < o10[i-1].close) oO -= (o10[i].volume || 0);
+  }
+  const oUp = oR > oO; if (oUp) score++;
+  checks.push({ pass: oUp, value: oUp ? 'تراكم' : 'توزيع' });
+
+  let signal = 'محايد', sc = 'amber';
+  if (score >= 7) { signal = 'إشارة شراء قوية'; sc = 'emerald'; }
+  else if (score >= 5) { signal = 'إيجابي'; sc = 'emerald'; }
+  else if (score >= 3) { signal = 'محايد'; sc = 'amber'; }
+  else { signal = 'سلبي'; sc = 'rose'; }
+
+  let trend = 'عرضي';
+  if (ma9 > ma20 * 1.005 && last > ma20) trend = 'صاعد';
+  else if (ma9 < ma20 * 0.995 && last < ma20) trend = 'هابط';
+
+  const eH = fibs.f50, eL = fibs.f618;
+  const sl = Math.min(piv.s2, fibs.f786, last - (atr || 0) * 1.5);
+  const t1 = piv.r1, t2 = piv.r2, t3 = high * 1.05;
+  const eM = (eH + eL) / 2;
+  const risk = eM - sl, reward = t2 - eM;
+  const rr = risk > 0 ? reward / risk : 0;
+
+  return {
+    last, prev, change, changePct, high, low, ma9, ma20, ema200, rsi, macd, atr, adx, vwap, obv, st,
+    pivots: piv, fibs, trend, entryHigh: eH, entryLow: eL, stopLoss: sl,
+    target1: t1, target2: t2, target3: t3, rr, signal, signalColor: sc, score, checks
+  };
+}
+
+function generateSmartSummary(stock, a, patterns) {
+  const parts = [];
+  const cur = getCurrency();
+  const stockName = stock.name + (stock.ar ? ` (${stock.ar})` : '');
+  if (a.trend === 'صاعد' && a.score >= 6) parts.push(`سهم ${stockName} في ترند صاعد قوي مع إشارة فنية إيجابية (${a.score}/8).`);
+  else if (a.trend === 'صاعد') parts.push(`سهم ${stockName} في ترند صاعد لكن الإشارات مختلطة (${a.score}/8).`);
+  else if (a.trend === 'هابط' && a.score <= 3) parts.push(`سهم ${stockName} في ترند هابط مع إشارات سلبية (${a.score}/8).`);
+  else if (a.trend === 'هابط') parts.push(`سهم ${stockName} في ترند هابط مع بعض الإشارات الإيجابية (${a.score}/8).`);
+  else parts.push(`سهم ${stockName} يتحرك عرضياً بدون اتجاه واضح (${a.score}/8).`);
+
+  if (a.rsi > 70) parts.push(`مؤشر RSI عند ${a.rsi.toFixed(1)} يشير لتشبع شرائي - احذر من تصحيح قريب.`);
+  else if (a.rsi < 30) parts.push(`مؤشر RSI عند ${a.rsi.toFixed(1)} يشير لتشبع بيعي - فرصة ارتداد محتملة.`);
+
+  if (a.last >= a.entryLow && a.last <= a.entryHigh) parts.push(`✓ السعر داخل منطقة الدخول الذهبية (${a.entryLow.toFixed(2)} - ${a.entryHigh.toFixed(2)} ${cur}).`);
+  else if (a.last > a.entryHigh) parts.push(`السعر فوق منطقة الدخول، يُفضل انتظار التصحيح إلى ${a.entryHigh.toFixed(2)} ${cur}.`);
+  else parts.push(`السعر تحت منطقة الدخول، انتظر إشارة ارتداد قبل الشراء.`);
+
+  parts.push(`أقرب مقاومة: ${a.pivots.r1.toFixed(2)} ${cur} | أقرب دعم: ${a.pivots.s1.toFixed(2)} ${cur}.`);
+
+  if (patterns.length > 0) {
+    const bullish = patterns.filter(p => p.type === 'bullish');
+    const bearish = patterns.filter(p => p.type === 'bearish');
+    if (bullish.length) parts.push(`🕯️ نمط شموع صعودي: ${bullish.map(p => p.name).join('، ')}.`);
+    if (bearish.length) parts.push(`🕯️ نمط شموع هبوطي: ${bearish.map(p => p.name).join('، ')}.`);
+  }
+
+  if (a.score >= 6 && a.trend === 'صاعد' && a.rr > 1.5) parts.push(`🎯 التوصية: فرصة جيدة، ادخل في منطقة ${a.entryLow.toFixed(2)}-${a.entryHigh.toFixed(2)} ${cur} مع وقف خسارة عند ${a.stopLoss.toFixed(2)}.`);
+  else if (a.score <= 2) parts.push(`⚠️ التوصية: تجنب الدخول حالياً، الإشارات ضعيفة جداً.`);
+  else parts.push(`📊 التوصية: مراقبة فقط حتى تتضح الإشارات أكثر.`);
+
+  return parts;
+}
+
+const fmt = (n, d = 2) => n == null ? '—' : Number(n).toFixed(d);
+const fmtBig = (n) => n == null ? '—' : Math.abs(n) >= 1e6 ? (n/1e6).toFixed(1)+'M' : Math.abs(n) >= 1e3 ? (n/1e3).toFixed(1)+'K' : n.toFixed(0);
+
+function getOHLC(code, custom) {
+  const stock = getStocks().find(s => s.code === code);
+  if (!stock) return null;
+
+  // Priority: 1) Custom data, 2) Live data (cached), 3) Generated
+  if (custom && custom.trim()) {
+    const p = custom.split(/[\s,،\n]+/).map(x => parseFloat(x.replace(/[^0-9.]/g, ''))).filter(x => !isNaN(x) && x > 0);
+    if (p.length >= 30) {
+      return p.map((c, i) => {
+        const prev = i > 0 ? p[i-1] : c;
+        const range = Math.abs(c - prev) * 1.5 + c * 0.005;
+        return { open: prev, close: c, high: Math.max(c, prev) + range * 0.3, low: Math.min(c, prev) - range * 0.3, volume: 1000000 };
+      });
+    }
+  }
+
+  if (state.liveMode && state.liveCache[code]) {
+    return state.liveCache[code].ohlc;
+  }
+
+  return generateSeries(stock);
+}
+
+function detectPatterns(ohlc) {
+  const patterns = [];
+  if (ohlc.length < 3) return patterns;
+  const last = ohlc[ohlc.length - 1];
+  const prev = ohlc[ohlc.length - 2];
+  const body = Math.abs(last.close - last.open);
+  const range = last.high - last.low;
+  const upperWick = last.high - Math.max(last.open, last.close);
+  const lowerWick = Math.min(last.open, last.close) - last.low;
+
+  if (lowerWick > body * 2 && upperWick < body * 0.5 && body > 0)
+    patterns.push({ name: 'مطرقة', type: 'bullish', desc: 'إشارة انعكاس صعودي محتملة' });
+  if (upperWick > body * 2 && lowerWick < body * 0.5 && body > 0)
+    patterns.push({ name: 'نجمة هابطة', type: 'bearish', desc: 'إشارة انعكاس هبوطي محتملة' });
+  if (body < range * 0.1 && range > 0)
+    patterns.push({ name: 'دوجي', type: 'neutral', desc: 'حالة تردد في السوق' });
+  if (last.close > last.open && prev.close < prev.open && last.close > prev.open && last.open < prev.close)
+    patterns.push({ name: 'ابتلاع صعودي', type: 'bullish', desc: 'إشارة قوية للارتداد الصعودي' });
+  if (last.close < last.open && prev.close > prev.open && last.open > prev.close && last.close < prev.open)
+    patterns.push({ name: 'ابتلاع هبوطي', type: 'bearish', desc: 'إشارة قوية للانعكاس الهبوطي' });
+  return patterns;
+}
+
+function renderCandleChart(ohlc, a) {
+  const W = 360, H = 280, pad = { t: 10, r: 45, b: 20, l: 5 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+  const allVals = ohlc.flatMap(d => [d.high, d.low]).concat([a.pivots.r1, a.pivots.r2, a.pivots.s1, a.pivots.s2, a.vwap, a.stopLoss, a.entryHigh, a.entryLow]).filter(v => v != null);
+  const minY = Math.min(...allVals) * 0.99;
+  const maxY = Math.max(...allVals) * 1.01;
+  const yScale = v => pad.t + ch - ((v - minY) / (maxY - minY)) * ch;
+  const xScale = i => pad.l + (i / (ohlc.length - 1)) * cw;
+  const bw = Math.max(2, cw / ohlc.length * 0.7);
+
+  const candles = ohlc.map((d, i) => {
+    const x = xScale(i);
+    const isUp = d.close >= d.open;
+    const color = isUp ? '#10b981' : '#f43f5e';
+    const bodyTop = yScale(Math.max(d.open, d.close));
+    const bodyH = Math.max(1, Math.abs(yScale(d.open) - yScale(d.close)));
+    return `
+      <line x1="${x}" y1="${yScale(d.high)}" x2="${x}" y2="${yScale(d.low)}" stroke="${color}" stroke-width="0.8"/>
+      <rect x="${x - bw/2}" y="${bodyTop}" width="${bw}" height="${bodyH}" fill="${color}" stroke="${color}"/>
+    `;
+  }).join('');
+
+  const closes = ohlc.map(d => d.close);
+  const ma9Arr = closes.map((_, i) => i >= 8 ? sma(closes.slice(0, i + 1), 9) : null);
+  const ma20Arr = closes.map((_, i) => i >= 19 ? sma(closes.slice(0, i + 1), 20) : null);
+  const path = (data) => data.map((v, i) => v == null ? '' : `${i === 0 || data[i-1] == null ? 'M' : 'L'} ${xScale(i)} ${yScale(v)}`).join(' ');
+  const yLabel = (v, color, bg) => `
+    <rect x="${W - pad.r + 1}" y="${yScale(v) - 7}" width="${pad.r - 2}" height="13" fill="${bg}" rx="2"/>
+    <text x="${W - pad.r + 3}" y="${yScale(v) + 3}" font-size="9" fill="${color}" font-family="monospace" font-weight="600">${fmt(v)}</text>
+  `;
+  const hLine = (v, color, dash, op = 1) => `<line x1="${pad.l}" y1="${yScale(v)}" x2="${W - pad.r}" y2="${yScale(v)}" stroke="${color}" stroke-width="1" stroke-dasharray="${dash}" opacity="${op}"/>`;
+
+  return `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+      <rect x="${pad.l}" y="${pad.t}" width="${cw}" height="${ch}" fill="#0a0a0a"/>
+      ${[0.25, 0.5, 0.75].map(p => `<line x1="${pad.l}" y1="${pad.t + ch * p}" x2="${W - pad.r}" y2="${pad.t + ch * p}" stroke="#27272a" stroke-dasharray="2 4"/>`).join('')}
+      <rect x="${pad.l}" y="${yScale(a.entryHigh)}" width="${cw}" height="${yScale(a.entryLow) - yScale(a.entryHigh)}" fill="#10b981" fill-opacity="0.1" stroke="#10b981" stroke-opacity="0.3" stroke-dasharray="3 3"/>
+      ${hLine(a.pivots.r1, '#f43f5e', '4 4')}
+      ${hLine(a.pivots.r2, '#f43f5e', '4 4', 0.4)}
+      ${hLine(a.pivots.s1, '#10b981', '4 4')}
+      ${hLine(a.pivots.s2, '#10b981', '4 4', 0.4)}
+      ${a.vwap ? hLine(a.vwap, '#fbbf24', '2 6', 0.6) : ''}
+      ${hLine(a.stopLoss, '#ef4444', '6 2')}
+      <path d="${path(ma20Arr)}" fill="none" stroke="#a78bfa" stroke-width="1.2" opacity="0.8"/>
+      <path d="${path(ma9Arr)}" fill="none" stroke="#38bdf8" stroke-width="1.2" opacity="0.8"/>
+      ${candles}
+      ${yLabel(a.pivots.r1, '#fff', '#f43f5e')}
+      ${yLabel(a.pivots.s1, '#fff', '#10b981')}
+      ${yLabel(a.last, '#000', '#fbbf24')}
+      ${yLabel(a.stopLoss, '#fff', '#ef4444')}
+    </svg>
+  `;
+}
+
+function renderMACDChart(ohlc) {
+  const W = 360, H = 110, pad = { t: 5, r: 35, b: 15, l: 5 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+  const closes = ohlc.map(d => d.close);
+  const e12 = emaArr(closes, 12), e26 = emaArr(closes, 26);
+  const macdLine = closes.map((_, i) => (e12[i] != null && e26[i] != null) ? e12[i] - e26[i] : null);
+  const start = macdLine.findIndex(x => x != null);
+  const valid = macdLine.slice(start).filter(x => x != null);
+  const sigArr = emaArr(valid, 9);
+  const sigFull = closes.map((_, i) => { const idx = i - start - 8; return idx >= 0 ? sigArr[idx] : null; });
+  const hist = closes.map((_, i) => (macdLine[i] != null && sigFull[i] != null) ? macdLine[i] - sigFull[i] : null);
+  const all = [...macdLine, ...sigFull, ...hist].filter(x => x != null);
+  const minY = Math.min(...all, 0) * 1.1;
+  const maxY = Math.max(...all, 0) * 1.1;
+  const yScale = v => pad.t + ch - ((v - minY) / (maxY - minY)) * ch;
+  const xScale = i => pad.l + (i / (closes.length - 1)) * cw;
+  const zeroY = yScale(0);
+  const bw = cw / closes.length * 0.7;
+  const bars = hist.map((v, i) => v == null ? '' : `<rect x="${xScale(i) - bw/2}" y="${Math.min(yScale(v), zeroY)}" width="${bw}" height="${Math.abs(yScale(v) - zeroY)}" fill="${v >= 0 ? '#10b981' : '#f43f5e'}" opacity="0.6"/>`).join('');
+  const path = (data) => data.map((v, i) => v == null ? '' : `${i === 0 || data[i-1] == null ? 'M' : 'L'} ${xScale(i)} ${yScale(v)}`).join(' ');
+  return `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+      <rect x="${pad.l}" y="${pad.t}" width="${cw}" height="${ch}" fill="#0a0a0a"/>
+      <line x1="${pad.l}" y1="${zeroY}" x2="${W - pad.r}" y2="${zeroY}" stroke="#52525b" stroke-width="0.5"/>
+      ${bars}
+      <path d="${path(macdLine)}" fill="none" stroke="#fbbf24" stroke-width="1.5"/>
+      <path d="${path(sigFull)}" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+    </svg>
+  `;
+}
+
+function indicatorRow(icon, label, value, status, pass) {
+  const cls = pass ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/15 text-rose-400 border border-rose-500/20';
+  return `
+    <div class="flex items-center justify-between py-2.5 px-3 border-b border-zinc-800/60 hover:bg-zinc-800/20">
+      <div class="flex items-center gap-2 min-w-0 flex-1">
+        <span class="text-base">${icon}</span>
+        <span class="text-xs text-zinc-300 truncate">${label}</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="mono text-xs text-zinc-100 font-semibold">${value}</span>
+        <span class="text-[10px] px-2 py-0.5 rounded-md font-medium min-w-[64px] text-center ${cls}">${status}</span>
+      </div>
+    </div>
+  `;
+}
+
+function levelRow(label, value, color, dim) {
+  return `
+    <div class="flex items-center justify-between py-1.5 border-b border-zinc-800/60 last:border-0">
+      <div class="flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full ${color}"></span>
+        <span class="text-xs ${dim ? 'text-zinc-500' : 'text-zinc-300'}">${label}</span>
+      </div>
+      <span class="mono text-sm text-zinc-100">${value}</span>
+    </div>
+  `;
+}
+
+function statBox(label, value, accent, sub) {
+  const map = { emerald: 'text-emerald-400', rose: 'text-rose-400', amber: 'text-amber-400', sky: 'text-sky-400', zinc: 'text-zinc-100', purple: 'text-purple-400' };
+  return `
+    <div class="bg-zinc-900/60 border border-zinc-800 rounded-lg p-3">
+      <div class="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">${label}</div>
+      <div class="text-base mono ${map[accent || 'zinc']} font-semibold">${value}</div>
+      ${sub ? `<div class="text-[10px] text-zinc-500 mt-0.5">${sub}</div>` : ''}
+    </div>
+  `;
+}
+
+// ============ HEADER ============
+function renderHeader() {
+  const liveStatus = state.liveMode ? `
+    <div class="flex items-center gap-1.5 px-2 py-0.5 bg-rose-500/15 border border-rose-500/30 rounded-md">
+      <span class="w-1.5 h-1.5 bg-rose-500 rounded-full live-dot"></span>
+      <span class="text-[10px] font-bold text-rose-400">LIVE</span>
+    </div>
+  ` : `
+    <div class="flex items-center gap-1.5 px-2 py-0.5 bg-zinc-800 rounded-md">
+      <span class="text-[10px] text-zinc-400">DEMO</span>
+    </div>
+  `;
+
+  return `
+    <div class="border-b border-zinc-800 bg-gradient-to-l from-zinc-950 via-zinc-900 to-zinc-950 sticky top-0 z-20 backdrop-blur-xl">
+      <div class="max-w-3xl mx-auto px-4 py-3">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-zinc-950 font-black text-lg shadow-lg shadow-amber-500/30">📈</div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-base font-bold leading-tight">منصة التحليل الفني</h1>
+                ${liveStatus}
+              </div>
+              <p class="text-[11px] text-zinc-500 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span>
+                ${getMarketName()} · ${getMarketIndex()}
+              </p>
+            </div>
+          </div>
+          <div class="flex gap-1 bg-zinc-900 rounded-lg p-1 border border-zinc-800">
+            <button onclick="switchMarket('us')" class="px-3 py-1.5 rounded-md text-xs font-bold transition ${state.market === 'us' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400'}">🇺🇸 US</button>
+            <button onclick="switchMarket('sa')" class="px-3 py-1.5 rounded-md text-xs font-bold transition ${state.market === 'sa' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400'}">🇸🇦 SA</button>
+          </div>
+        </div>
+        <div class="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
+          ${[
+            {id:'analyze', label:'📊 تحليل'},
+            {id:'scanner', label:'🔍 ماسح'},
+            {id:'compare', label:'⚖️ مقارنة'},
+            {id:'risk', label:'💰 حاسبة'},
+            {id:'alerts', label:'🔔 تنبيهات'},
+            {id:'settings', label:'⚙️ إعدادات'},
+          ].map(t => `
+            <button onclick="changeTab('${t.id}')" class="shrink-0 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${state.tab === t.id ? 'tab-active' : 'bg-zinc-900 text-zinc-300 border border-zinc-800 hover:border-zinc-700'}">
+              ${t.label}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============ ANALYZE TAB ============
+function renderAnalyze() {
+  const stocks = getStocks();
+  const stock = stocks.find(s => s.code === state.code);
+  if (!stock) { state.code = stocks[0].code; return renderAnalyze(); }
+
+  // Trigger live fetch if needed
+  if (state.liveMode && !state.liveCache[state.code] && !state.loading[state.code]) {
+    fetchLiveData(state.code).then(() => render());
+  }
+
+  const isLoading = state.liveMode && state.loading[state.code];
+  const ohlc = getOHLC(state.code, state.custom);
+  const a = analyze(ohlc);
+  if (!a) return '<div class="p-8 text-center text-zinc-400">جاري التحميل...</div>';
+
+  const isUp = a.change >= 0;
+  const sigColor = a.signalColor === 'emerald' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
+                   a.signalColor === 'rose' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' :
+                   'bg-amber-500/10 text-amber-400 border-amber-500/30';
+  const sigText = a.signalColor === 'emerald' ? 'text-emerald-400' : a.signalColor === 'rose' ? 'text-rose-400' : 'text-amber-400';
+  const glow = a.signalColor === 'emerald' ? 'glow-emerald' : a.signalColor === 'rose' ? 'glow-rose' : 'glow-amber';
+  const patterns = detectPatterns(ohlc);
+  const summary = generateSmartSummary(stock, a, patterns);
+  const cur = getCurrency();
+  const displayName = state.market === 'us' ? `${stock.name} (${stock.ar})` : stock.name;
+  const filtered = state.search ? stocks.filter(s =>
+    s.code.toLowerCase().includes(state.search.toLowerCase()) ||
+    s.name.toLowerCase().includes(state.search.toLowerCase()) ||
+    (s.ar && s.ar.includes(state.search)) ||
+    (s.en && s.en.toLowerCase().includes(state.search.toLowerCase()))
+  ) : stocks;
+
+  const liveStatus = state.liveMode ? (state.liveCache[state.code] ?
+    `<div class="flex items-center gap-1.5 text-[10px] text-rose-400"><span class="w-1.5 h-1.5 bg-rose-500 rounded-full live-dot"></span>بيانات حية · ${new Date(state.lastFetch[state.code]).toLocaleTimeString('ar')}</div>` :
+    `<div class="text-[10px] text-amber-400">⏳ جاري جلب البيانات الحية...</div>`
+  ) : `<div class="text-[10px] text-zinc-500">📊 بيانات تجريبية - فعّل الوضع الحي من الإعدادات</div>`;
+
+  return `
+    <div class="max-w-3xl mx-auto px-4 py-4 space-y-4 slide-in">
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 space-y-2">
+        <input type="text" id="searchInput" placeholder="🔍 ابحث بالرمز أو الاسم..." value="${state.search}" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-zinc-100 text-sm focus:border-amber-500 focus:outline-none" />
+        <div class="flex gap-2">
+          <select id="stockSel" class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-zinc-100 focus:border-amber-500 focus:outline-none">
+            ${filtered.map(s => {
+              const isCustom = (state.customStocks[state.market] || []).find(c => c.code === s.code);
+              const label = state.market === 'us' ? s.name + (s.ar ? ' (' + s.ar + ')' : '') : s.name;
+              return `<option value="${s.code}" ${s.code === state.code ? 'selected' : ''}>${isCustom ? '⭐ ' : ''}${s.code} — ${label} · ${s.sector}</option>`;
+            }).join('')}
+          </select>
+          <button onclick="state.showAddStock = !state.showAddStock; render();" class="px-3 bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-lg text-sm font-bold hover:bg-amber-500/30 shrink-0" title="إضافة سهم جديد">
+            ${state.showAddStock ? '×' : '+'}
+          </button>
+        </div>
+
+        ${state.showAddStock ? `
+          <div class="bg-zinc-950 border border-amber-500/30 rounded-lg p-3 space-y-2">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-amber-400">➕</span>
+              <h4 class="text-xs font-bold text-amber-400">إضافة سهم جديد للمتابعة</h4>
+            </div>
+            <input type="text" id="newStockCode" placeholder="${state.market === 'us' ? 'الرمز (مثل: BABA, SHOP, UBER)' : 'الرمز (مثل: 2350)'}" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 text-sm mono focus:border-amber-500 focus:outline-none" dir="ltr" />
+            <input type="text" id="newStockName" placeholder="${state.market === 'us' ? 'اسم الشركة (مثل: Alibaba)' : 'اسم الشركة (مثل: كيمانول)'}" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 text-sm focus:border-amber-500 focus:outline-none" />
+            <div class="grid grid-cols-2 gap-2">
+              <input type="text" id="newStockSector" placeholder="القطاع (اختياري)" class="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 text-sm focus:border-amber-500 focus:outline-none" />
+              <input type="text" id="newStockAr" placeholder="${state.market === 'us' ? 'الاسم بالعربي (اختياري)' : 'الاسم بالإنجليزي (اختياري)'}" class="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 text-sm focus:border-amber-500 focus:outline-none" />
+            </div>
+            <button onclick="addCustomStock()" class="w-full py-2 bg-amber-500 text-zinc-950 rounded-lg text-sm font-bold hover:bg-amber-400">
+              💾 حفظ ومتابعة
+            </button>
+            <p class="text-[10px] text-zinc-500 leading-relaxed">
+              💡 الرمز فقط مطلوب. ${state.market === 'us' ? 'استخدم رمز Yahoo Finance (مثل: <span class="mono">BABA</span> لـ Alibaba)' : 'استخدم رقم السهم في تداول (مثل: <span class="mono">2350</span> لكيمانول)'}.
+              السهم المضاف سيُحفظ في متصفحك ويظهر في كل التبويبات.
+            </p>
+
+            ${(state.customStocks[state.market] || []).length > 0 ? `
+              <div class="border-t border-zinc-800 pt-2 mt-2">
+                <div class="text-[10px] text-zinc-500 mb-1.5">الأسهم المضافة:</div>
+                <div class="flex flex-wrap gap-1.5">
+                  ${(state.customStocks[state.market] || []).map(s => `
+                    <button onclick="removeCustomStock('${s.code}')" class="px-2 py-0.5 bg-zinc-800 border border-zinc-700 rounded-md text-[10px] text-zinc-300 flex items-center gap-1 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400">
+                      ⭐ ${s.code} <span class="text-rose-400">×</span>
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+
+        ${liveStatus}
+      </div>
+
+      <div class="bg-gradient-to-bl from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl overflow-hidden ${glow}">
+        <div class="p-5">
+          <div class="flex items-start justify-between mb-3">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 text-xs text-zinc-500 mb-0.5">
+                <span class="mono font-bold text-amber-400">${stock.code}</span>
+                <span>·</span>
+                <span>${stock.sector}</span>
+              </div>
+              <div class="text-xl font-bold truncate">${displayName}</div>
+            </div>
+            <div class="px-3 py-1.5 rounded-lg text-xs font-bold border ${sigColor} shrink-0">${a.signal}</div>
+          </div>
+          <div class="flex items-end gap-3 flex-wrap">
+            <div>
+              <div class="mono text-4xl font-bold leading-none ${isLoading ? 'skeleton' : ''}">${fmt(a.last)}</div>
+              <div class="text-[10px] text-zinc-500 mt-1">${cur}</div>
+            </div>
+            <div class="pb-1.5 mono text-sm font-semibold ${isUp ? 'text-emerald-400' : 'text-rose-400'}">
+              ${isUp ? '▲' : '▼'} ${fmt(Math.abs(a.change))} (${fmt(Math.abs(a.changePct))}%)
+            </div>
+            <button onclick="refreshLive('${stock.code}')" class="ms-auto px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-[11px] text-zinc-300 flex items-center gap-1" title="تحديث">
+              🔄
+            </button>
+            <button onclick="addAlert('${stock.code}', ${a.last})" class="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-[11px] text-zinc-300 flex items-center gap-1">
+              🔔 تنبيه
+            </button>
+          </div>
+        </div>
+        <div class="border-t border-zinc-800 bg-zinc-950/60 p-4">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-base">🎯</span>
+              <span class="text-xs font-semibold text-zinc-300">إشارة المؤشرات المركّبة</span>
+            </div>
+            <span class="mono text-lg font-bold ${sigText}">${a.score}/8</span>
+          </div>
+          <div class="flex gap-1">
+            ${Array.from({length: 8}).map((_, i) => `<div class="flex-1 h-2 rounded-full transition-all ${i < a.score ? (a.score >= 6 ? 'bg-emerald-400' : a.score >= 4 ? 'bg-amber-400' : 'bg-rose-400') : 'bg-zinc-800'}"></div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-gradient-to-bl from-sky-950/30 via-zinc-900 to-zinc-900 border border-sky-500/20 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-1 h-5 bg-sky-400 rounded-full"></div>
+          <h3 class="text-sm font-bold text-sky-400">🧠 الملخص الذكي</h3>
+        </div>
+        <div class="space-y-2">
+          ${summary.map(p => `<p class="text-xs text-zinc-300 leading-relaxed">${p}</p>`).join('')}
+        </div>
+      </div>
+
+      ${patterns.length > 0 ? `
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
+          <span class="w-1 h-5 bg-pink-400 rounded-full"></span>
+          🕯️ أنماط الشموع المكتشفة
+        </h3>
+        <div class="space-y-2">
+          ${patterns.map(p => `
+            <div class="flex items-center justify-between bg-zinc-950/60 border border-zinc-800 rounded-lg p-2.5">
+              <div class="flex items-center gap-2">
+                <span class="${p.type === 'bullish' ? 'text-emerald-400' : p.type === 'bearish' ? 'text-rose-400' : 'text-amber-400'} text-lg">●</span>
+                <div>
+                  <div class="text-xs font-bold text-zinc-100">${p.name}</div>
+                  <div class="text-[10px] text-zinc-500">${p.desc}</div>
+                </div>
+              </div>
+              <span class="text-[10px] px-2 py-0.5 rounded ${p.type === 'bullish' ? 'bg-emerald-500/15 text-emerald-400' : p.type === 'bearish' ? 'bg-rose-500/15 text-rose-400' : 'bg-amber-500/15 text-amber-400'}">
+                ${p.type === 'bullish' ? 'صعودي' : p.type === 'bearish' ? 'هبوطي' : 'محايد'}
+              </span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+        <div class="p-3 border-b border-zinc-800 bg-zinc-900/80 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-1 h-5 bg-amber-400 rounded-full"></span>
+            <h3 class="text-sm font-bold">لوحة المؤشرات الفنية</h3>
+          </div>
+          <span class="text-[10px] text-zinc-500 mono">8 مؤشرات</span>
+        </div>
+        <div>
+          ${indicatorRow('📈', 'الترند (MA9 / MA20)', `${fmt(a.ma9)} / ${fmt(a.ma20)}`, a.checks[0].value, a.checks[0].pass)}
+          ${indicatorRow('🏛️', 'EMA200', fmt(a.ema200), a.checks[1].value, a.checks[1].pass)}
+          ${indicatorRow('📊', 'MACD', fmt(a.macd.hist, 3), a.checks[2].value, a.checks[2].pass)}
+          ${indicatorRow('💪', 'RSI', fmt(a.rsi, 1), a.checks[3].value, a.checks[3].pass)}
+          ${indicatorRow('📉', 'VWAP', fmt(a.vwap), a.checks[4].value, a.checks[4].pass)}
+          ${indicatorRow('⚡', 'Supertrend', fmt(a.st.value), a.checks[5].value, a.checks[5].pass)}
+          ${indicatorRow('🔥', 'ADX', fmt(a.adx, 1), a.checks[6].value, a.checks[6].pass)}
+          ${indicatorRow('📦', 'OBV', fmtBig(a.obv), a.checks[7].value, a.checks[7].pass)}
+        </div>
+        <div class="p-3 border-t border-zinc-800 bg-zinc-950/50 flex items-center justify-around text-center">
+          <div><div class="text-[10px] text-zinc-500">ATR</div><div class="mono text-xs text-amber-400 font-semibold">${fmt(a.atr)}</div></div>
+          <div class="w-px h-8 bg-zinc-800"></div>
+          <div><div class="text-[10px] text-zinc-500">الترند</div><div class="text-xs font-semibold ${a.trend === 'صاعد' ? 'text-emerald-400' : a.trend === 'هابط' ? 'text-rose-400' : 'text-amber-400'}">${a.trend}</div></div>
+          <div class="w-px h-8 bg-zinc-800"></div>
+          <div><div class="text-[10px] text-zinc-500">R/R</div><div class="mono text-xs text-amber-400 font-semibold">1:${fmt(a.rr, 1)}</div></div>
+        </div>
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold">المخطط الفني (شموع)</h3>
+          <div class="flex items-center gap-2 text-[9px] flex-wrap">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 bg-emerald-400 inline-block rounded-sm"></span>صعود</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 bg-rose-400 inline-block rounded-sm"></span>هبوط</span>
+          </div>
+        </div>
+        ${renderCandleChart(ohlc, a)}
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3">
+        <h3 class="text-sm font-semibold mb-2">مخطط MACD</h3>
+        ${renderMACDChart(ohlc)}
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+          <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+            <span class="w-2 h-2 rounded-full bg-rose-400"></span> المقاومة
+          </h3>
+          ${levelRow('R3', fmt(a.pivots.r3), 'bg-rose-400/40', true)}
+          ${levelRow('R2', fmt(a.pivots.r2), 'bg-rose-400/70')}
+          ${levelRow('R1', fmt(a.pivots.r1), 'bg-rose-400')}
+          ${levelRow('Pivot', fmt(a.pivots.p), 'bg-amber-400')}
+        </div>
+        <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+          <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> الدعم
+          </h3>
+          ${levelRow('Pivot', fmt(a.pivots.p), 'bg-amber-400')}
+          ${levelRow('S1', fmt(a.pivots.s1), 'bg-emerald-400')}
+          ${levelRow('S2', fmt(a.pivots.s2), 'bg-emerald-400/70')}
+          ${levelRow('S3', fmt(a.pivots.s3), 'bg-emerald-400/40', true)}
+        </div>
+      </div>
+
+      <div class="bg-gradient-to-bl from-emerald-950/40 via-zinc-900 to-zinc-900 border border-emerald-500/20 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-1 h-5 bg-emerald-400 rounded-full"></div>
+          <h3 class="text-sm font-bold">منطقة الدخول الذهبية</h3>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          ${statBox('حد أعلى', fmt(a.entryHigh), 'emerald')}
+          ${statBox('حد أدنى', fmt(a.entryLow), 'emerald')}
+        </div>
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
+          <span class="w-1 h-5 bg-amber-400 rounded-full"></span>خطة الصفقة
+        </h3>
+        <div class="grid grid-cols-2 gap-2">
+          ${statBox('وقف الخسارة', fmt(a.stopLoss), 'rose', `R/R: 1:${fmt(a.rr, 1)}`)}
+          ${statBox('هدف 1', fmt(a.target1), 'emerald')}
+          ${statBox('هدف 2', fmt(a.target2), 'emerald')}
+          ${statBox('هدف 3', fmt(a.target3), 'emerald')}
+        </div>
+        <button onclick="state.tab='risk'; render();" class="w-full mt-3 py-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs font-semibold text-amber-400 hover:bg-amber-500/20">
+          💰 احسب حجم الصفقة المناسب
+        </button>
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl">
+        <button id="toggleInput" class="w-full p-4 flex items-center justify-between hover:bg-zinc-900">
+          <div class="flex items-center gap-2">
+            <span class="w-1 h-5 bg-purple-400 rounded-full"></span>
+            <span class="text-sm font-bold">تحليل بيانات سعرية مخصصة</span>
+          </div>
+          <span class="text-zinc-500 text-lg">${state.showInput ? '−' : '+'}</span>
+        </button>
+        ${state.showInput ? `
+          <div class="p-4 pt-0 space-y-3">
+            <p class="text-xs text-zinc-400">ألصق 30+ سعر إغلاق</p>
+            <textarea id="customInput" placeholder="مثال: 95.20, 95.80, 96.10 ..." class="w-full h-32 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-100 text-sm mono focus:border-amber-500 focus:outline-none" dir="ltr">${state.custom}</textarea>
+            <div class="flex justify-between items-center">
+              <span class="text-[11px] text-zinc-500">${state.custom.trim() ? '✓ يتم استخدام بياناتك' : 'يتم استخدام بيانات افتراضية'}</span>
+              <button id="applyCustom" class="text-xs bg-amber-500/20 text-amber-400 px-3 py-1 rounded-md hover:bg-amber-500/30">تطبيق</button>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+
+    </div>
+  `;
+}
+
+// ============ SCANNER ============
+function renderScanner() {
+  const stocks = getStocks();
+  const results = stocks.map(s => {
+    const ohlc = (state.liveMode && state.liveCache[s.code]) ? state.liveCache[s.code].ohlc : generateSeries(s);
+    const a = analyze(ohlc);
+    return { stock: s, analysis: a };
+  }).filter(r => r.analysis && r.analysis.score >= state.scannerMin)
+    .sort((a, b) => b.analysis.score - a.analysis.score);
+
+  return `
+    <div class="max-w-3xl mx-auto px-4 py-4 space-y-4 slide-in">
+      <div class="bg-gradient-to-bl from-amber-950/30 via-zinc-900 to-zinc-900 border border-amber-500/20 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="text-base font-bold text-amber-400 flex items-center gap-2">
+            <span>🔍</span> الماسح الضوئي
+          </h2>
+          ${state.liveMode ? `<button onclick="scanAllLive()" class="px-3 py-1 bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-md text-xs font-semibold">🔴 جلب حي للكل</button>` : ''}
+        </div>
+        <p class="text-xs text-zinc-400">${getMarketName()} · يفحص ${stocks.length} سهم</p>
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <label class="text-xs font-semibold text-zinc-300">الحد الأدنى للإشارة</label>
+          <span class="mono text-amber-400 font-bold">${state.scannerMin}/8</span>
+        </div>
+        <div class="grid grid-cols-4 gap-2">
+          ${[3, 5, 6, 7].map(n => `
+            <button onclick="state.scannerMin=${n}; render();" class="py-2 rounded-lg text-xs font-semibold transition ${state.scannerMin === n ? 'bg-amber-500 text-zinc-950' : 'bg-zinc-950 text-zinc-400 border border-zinc-800'}">${n}+ /8</button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+        <div class="p-3 border-b border-zinc-800 bg-zinc-900/80 flex items-center justify-between">
+          <h3 class="text-sm font-bold">النتائج (${results.length} سهم)</h3>
+          <span class="text-[10px] text-zinc-500">مرتبة من الأقوى</span>
+        </div>
+        ${results.length === 0 ? `
+          <div class="p-8 text-center"><div class="text-4xl mb-2">😔</div><p class="text-sm text-zinc-400">لا توجد فرص بهذا المعيار حالياً</p></div>
+        ` : results.map(r => {
+          const a = r.analysis;
+          const isUp = a.change >= 0;
+          const scColor = a.score >= 6 ? 'emerald' : a.score >= 4 ? 'amber' : 'rose';
+          const cur = getCurrency();
+          const dispName = state.market === 'us' ? `${r.stock.name} · ${r.stock.ar}` : r.stock.name;
+          return `
+            <div onclick="state.tab='analyze'; state.code='${r.stock.code}'; render();" class="p-3 border-b border-zinc-800/60 hover:bg-zinc-800/30 cursor-pointer last:border-0 transition">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <div class="text-center min-w-[44px] ${a.score >= 7 ? 'animate-pulse' : ''}">
+                    <div class="mono text-xl font-bold text-${scColor}-400 leading-none">${a.score}</div>
+                    <div class="text-[9px] text-zinc-500 mt-0.5">/8</div>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-bold truncate">${dispName}</div>
+                    <div class="text-[11px] text-zinc-500">${r.stock.code} · ${r.stock.sector}</div>
+                  </div>
+                </div>
+                <div class="text-left shrink-0">
+                  <div class="mono text-sm font-bold">${fmt(a.last)}</div>
+                  <div class="mono text-[11px] ${isUp ? 'text-emerald-400' : 'text-rose-400'}">${isUp ? '▲' : '▼'} ${fmt(Math.abs(a.changePct))}%</div>
+                </div>
+              </div>
+              <div class="flex gap-1 mb-2">
+                ${Array.from({length: 8}).map((_, i) => `<div class="flex-1 h-1 rounded-full ${i < a.score ? `bg-${scColor}-400` : 'bg-zinc-800'}"></div>`).join('')}
+              </div>
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-300">دخول: ${fmt(a.entryLow)}-${fmt(a.entryHigh)} ${cur}</span>
+                <span class="text-amber-400 mono">R/R 1:${fmt(a.rr, 1)}</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ============ COMPARE ============
+function renderCompare() {
+  const stocks = getStocks();
+  const data = state.compareCodes.filter(c => stocks.find(s => s.code === c)).map(code => {
+    const stock = stocks.find(s => s.code === code);
+    const ohlc = (state.liveMode && state.liveCache[code]) ? state.liveCache[code].ohlc : generateSeries(stock);
+    return { stock, analysis: analyze(ohlc) };
+  });
+
+  return `
+    <div class="max-w-3xl mx-auto px-4 py-4 space-y-4 slide-in">
+      <div class="bg-gradient-to-bl from-sky-950/30 via-zinc-900 to-zinc-900 border border-sky-500/20 rounded-xl p-4">
+        <h2 class="text-base font-bold text-sky-400 mb-1 flex items-center gap-2"><span>⚖️</span> مقارنة الأسهم</h2>
+        <p class="text-xs text-zinc-400">قارن حتى 5 أسهم جنباً إلى جنب</p>
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+        <div class="text-xs font-semibold text-zinc-300 mb-2">الأسهم المختارة (${state.compareCodes.length}/5)</div>
+        <div class="flex flex-wrap gap-2 mb-3">
+          ${state.compareCodes.map(c => {
+            const s = stocks.find(x => x.code === c);
+            if (!s) return '';
+            return `<button onclick="removeCompare('${c}')" class="px-2.5 py-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 rounded-lg text-xs flex items-center gap-1.5">${s.name} <span class="text-rose-400">×</span></button>`;
+          }).join('')}
+        </div>
+        ${state.compareCodes.length < 5 ? `
+          <select onchange="addCompare(this.value); this.value='';" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-100 text-sm focus:border-amber-500 focus:outline-none">
+            <option value="">+ إضافة سهم</option>
+            ${stocks.filter(s => !state.compareCodes.includes(s.code)).map(s => `<option value="${s.code}">${s.code} — ${s.name}</option>`).join('')}
+          </select>
+        ` : ''}
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+        ${data.sort((a,b) => b.analysis.score - a.analysis.score).map((r, idx) => {
+          const a = r.analysis;
+          const isUp = a.change >= 0;
+          const scColor = a.score >= 6 ? 'emerald' : a.score >= 4 ? 'amber' : 'rose';
+          return `
+            <div class="p-3 border-b border-zinc-800/60 last:border-0 ${idx === 0 ? 'bg-emerald-500/5' : ''}">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                  ${idx === 0 ? '<span class="text-base">🏆</span>' : `<span class="mono text-xs text-zinc-500 w-4">#${idx+1}</span>`}
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-bold truncate">${r.stock.name}</div>
+                    <div class="text-[10px] text-zinc-500">${r.stock.code} · ${r.stock.sector}</div>
+                  </div>
+                </div>
+                <div class="text-left shrink-0">
+                  <div class="mono text-sm font-bold">${fmt(a.last)}</div>
+                  <div class="mono text-[10px] ${isUp ? 'text-emerald-400' : 'text-rose-400'}">${isUp ? '▲' : '▼'} ${fmt(Math.abs(a.changePct))}%</div>
+                </div>
+              </div>
+              <div class="grid grid-cols-4 gap-1.5 text-center">
+                <div class="bg-zinc-950/60 rounded p-1.5"><div class="text-[9px] text-zinc-500">إشارة</div><div class="mono text-xs font-bold text-${scColor}-400">${a.score}/8</div></div>
+                <div class="bg-zinc-950/60 rounded p-1.5"><div class="text-[9px] text-zinc-500">RSI</div><div class="mono text-xs ${a.rsi > 70 ? 'text-rose-400' : a.rsi < 30 ? 'text-emerald-400' : 'text-zinc-100'}">${fmt(a.rsi, 0)}</div></div>
+                <div class="bg-zinc-950/60 rounded p-1.5"><div class="text-[9px] text-zinc-500">ترند</div><div class="text-[10px] font-bold ${a.trend === 'صاعد' ? 'text-emerald-400' : a.trend === 'هابط' ? 'text-rose-400' : 'text-amber-400'}">${a.trend}</div></div>
+                <div class="bg-zinc-950/60 rounded p-1.5"><div class="text-[9px] text-zinc-500">R/R</div><div class="mono text-xs text-amber-400">1:${fmt(a.rr, 1)}</div></div>
+              </div>
+              <button onclick="state.tab='analyze'; state.code='${r.stock.code}'; render();" class="w-full mt-2 py-1.5 bg-zinc-800/50 hover:bg-zinc-800 rounded text-[11px] text-zinc-300">عرض التحليل الكامل ←</button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ============ RISK ============
+function renderRisk() {
+  const stocks = getStocks();
+  const stock = stocks.find(s => s.code === state.code) || stocks[0];
+  const ohlc = getOHLC(stock.code, state.custom);
+  const a = analyze(ohlc);
+  if (!a) return '<div class="p-8 text-center text-zinc-400">جاري التحميل...</div>';
+  const cur = getCurrency();
+  const entryPrice = (a.entryHigh + a.entryLow) / 2;
+  const riskPerShare = entryPrice - a.stopLoss;
+  const maxRiskAmount = state.capital * (state.riskPct / 100);
+  const positionSize = riskPerShare > 0 ? Math.floor(maxRiskAmount / riskPerShare) : 0;
+  const positionValue = positionSize * entryPrice;
+  const totalRisk = positionSize * riskPerShare;
+  const profit1 = positionSize * (a.target1 - entryPrice);
+  const profit2 = positionSize * (a.target2 - entryPrice);
+  const profit3 = positionSize * (a.target3 - entryPrice);
+  const positionPct = (positionValue / state.capital) * 100;
+
+  return `
+    <div class="max-w-3xl mx-auto px-4 py-4 space-y-4 slide-in">
+      <div class="bg-gradient-to-bl from-purple-950/30 via-zinc-900 to-zinc-900 border border-purple-500/20 rounded-xl p-4">
+        <h2 class="text-base font-bold text-purple-400 mb-1 flex items-center gap-2"><span>💰</span> حاسبة المخاطرة</h2>
+        <p class="text-xs text-zinc-400">احسب حجم الصفقة المناسب لرأس مالك</p>
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 space-y-4">
+        <div>
+          <label class="text-xs font-semibold text-zinc-300 mb-2 block">السهم</label>
+          <select id="riskStockSel" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-100 text-sm focus:border-purple-500 focus:outline-none">
+            ${stocks.map(s => `<option value="${s.code}" ${s.code === state.code ? 'selected' : ''}>${s.code} — ${s.name}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-semibold text-zinc-300">رأس المال</label>
+            <span class="mono text-sm font-bold text-amber-400">${state.capital.toLocaleString()} ${cur}</span>
+          </div>
+          <input id="capitalInput" type="number" value="${state.capital}" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-100 text-sm mono focus:border-purple-500 focus:outline-none" />
+          <div class="grid grid-cols-4 gap-1.5 mt-2">
+            ${[10000, 50000, 100000, 500000].map(v => `<button onclick="state.capital=${v}; render();" class="py-1.5 rounded text-[11px] font-semibold ${state.capital === v ? 'bg-amber-500 text-zinc-950' : 'bg-zinc-950 text-zinc-400 border border-zinc-800'}">${v >= 1000 ? (v/1000)+'K' : v}</button>`).join('')}
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-semibold text-zinc-300">نسبة المخاطرة</label>
+            <span class="mono text-sm font-bold text-rose-400">${state.riskPct}%</span>
+          </div>
+          <input type="range" min="0.5" max="5" step="0.5" value="${state.riskPct}" oninput="state.riskPct=parseFloat(this.value); render();" class="w-full" />
+        </div>
+      </div>
+
+      <div class="bg-gradient-to-bl from-emerald-950/40 via-zinc-900 to-zinc-900 border border-emerald-500/30 rounded-xl p-5 glow-emerald">
+        <div class="bg-zinc-950/60 border border-zinc-800 rounded-lg p-4 mb-3">
+          <div class="text-center mb-3">
+            <div class="text-[10px] text-zinc-500 uppercase tracking-widest">عدد الأسهم المقترح</div>
+            <div class="mono text-4xl font-black text-emerald-400 mt-1">${positionSize.toLocaleString()}</div>
+            <div class="text-xs text-zinc-400 mt-1">سهم من ${stock.name}</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          ${statBox('سعر الدخول', fmt(entryPrice) + ' ' + cur, 'amber')}
+          ${statBox('وقف الخسارة', fmt(a.stopLoss) + ' ' + cur, 'rose')}
+          ${statBox('قيمة الصفقة', fmt(positionValue, 0) + ' ' + cur, 'sky')}
+          ${statBox('المخاطرة', fmt(totalRisk, 0) + ' ' + cur, 'rose', `${fmt(totalRisk/state.capital*100, 2)}%`)}
+        </div>
+        <div class="border-t border-zinc-800 pt-3 space-y-1.5">
+          <div class="flex items-center justify-between bg-zinc-950/60 border border-zinc-800 rounded-lg p-2">
+            <span class="text-xs text-zinc-300">هدف 1</span>
+            <span class="mono text-sm font-bold text-emerald-400">+${fmt(profit1, 0)} ${cur}</span>
+          </div>
+          <div class="flex items-center justify-between bg-zinc-950/60 border border-zinc-800 rounded-lg p-2">
+            <span class="text-xs text-zinc-300">هدف 2</span>
+            <span class="mono text-sm font-bold text-emerald-400">+${fmt(profit2, 0)} ${cur}</span>
+          </div>
+          <div class="flex items-center justify-between bg-zinc-950/60 border border-zinc-800 rounded-lg p-2">
+            <span class="text-xs text-zinc-300">هدف 3</span>
+            <span class="mono text-sm font-bold text-emerald-400">+${fmt(profit3, 0)} ${cur}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============ ALERTS ============
+function renderAlerts() {
+  return `
+    <div class="max-w-3xl mx-auto px-4 py-4 space-y-4 slide-in">
+      <div class="bg-gradient-to-bl from-pink-950/30 via-zinc-900 to-zinc-900 border border-pink-500/20 rounded-xl p-4">
+        <h2 class="text-base font-bold text-pink-400 mb-1 flex items-center gap-2"><span>🔔</span> تنبيهات الأسعار</h2>
+        <p class="text-xs text-zinc-400">اضبط تنبيهات للأسعار المهمة</p>
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-xs font-bold text-zinc-300 mb-3">إضافة تنبيه</h3>
+        <div class="space-y-2">
+          <select id="alertStockSel" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-100 text-sm focus:border-pink-500 focus:outline-none">
+            ${getStocks().map(s => `<option value="${s.code}">${s.code} — ${s.name}</option>`).join('')}
+          </select>
+          <div class="grid grid-cols-2 gap-2">
+            <select id="alertType" class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-100 text-sm focus:border-pink-500 focus:outline-none">
+              <option value="above">يصل إلى أو أعلى</option>
+              <option value="below">يصل إلى أو أقل</option>
+            </select>
+            <input id="alertPrice" type="number" placeholder="السعر" step="0.01" class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-zinc-100 text-sm mono focus:border-pink-500 focus:outline-none" dir="ltr" />
+          </div>
+          <button onclick="saveAlert()" class="w-full py-2.5 bg-pink-500/20 border border-pink-500/30 text-pink-400 rounded-lg text-sm font-semibold hover:bg-pink-500/30">+ إضافة</button>
+        </div>
+      </div>
+
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+        <div class="p-3 border-b border-zinc-800 bg-zinc-900/80"><h3 class="text-sm font-bold">التنبيهات النشطة (${state.alerts.length})</h3></div>
+        ${state.alerts.length === 0 ? `<div class="p-8 text-center"><div class="text-4xl mb-2">🔕</div><p class="text-sm text-zinc-400">لا توجد تنبيهات</p></div>` :
+        state.alerts.map((al, i) => {
+          const stock = [...SAUDI_STOCKS, ...US_STOCKS, ...(state.customStocks.sa || []), ...(state.customStocks.us || [])].find(s => s.code === al.code);
+          if (!stock) return '';
+          return `
+            <div class="p-3 border-b border-zinc-800/60 last:border-0 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">${al.type === 'above' ? '⬆️' : '⬇️'}</span>
+                <div>
+                  <div class="text-sm font-bold">${stock.name}</div>
+                  <div class="text-[11px] text-zinc-500">${stock.code} · ${al.type === 'above' ? '≥' : '≤'} <span class="mono text-amber-400">${fmt(al.price)}</span></div>
+                </div>
+              </div>
+              <button onclick="deleteAlert(${i})" class="p-2 text-rose-400 hover:bg-rose-500/10 rounded-lg">🗑️</button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ============ SETTINGS ============
+function renderSettings() {
+  return `
+    <div class="max-w-3xl mx-auto px-4 py-4 space-y-4 slide-in">
+      <div class="bg-gradient-to-bl from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl p-4">
+        <h2 class="text-base font-bold mb-1 flex items-center gap-2"><span>⚙️</span> الإعدادات</h2>
+        <p class="text-xs text-zinc-400">تحكم في وضع البيانات والخيارات</p>
+      </div>
+
+      <!-- LIVE MODE TOGGLE -->
+      <div class="bg-gradient-to-bl from-rose-950/30 via-zinc-900 to-zinc-900 border ${state.liveMode ? 'border-rose-500/40 glow-rose' : 'border-zinc-800'} rounded-xl p-5">
+        <div class="flex items-start justify-between mb-3">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="text-sm font-bold">🔴 الوضع الحي</h3>
+              ${state.liveMode ? '<span class="px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded-md text-[10px] font-bold border border-rose-500/30">مفعّل</span>' : '<span class="px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded-md text-[10px] font-bold">معطل</span>'}
+            </div>
+            <p class="text-xs text-zinc-400">جلب أسعار حقيقية من Yahoo Finance</p>
+          </div>
+          <button onclick="toggleLive()" class="w-12 h-7 rounded-full transition relative ${state.liveMode ? 'bg-rose-500' : 'bg-zinc-700'}">
+            <span class="absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${state.liveMode ? 'right-1' : 'right-6'}"></span>
+          </button>
+        </div>
+        ${state.liveMode ? `
+          <div class="bg-zinc-950/60 border border-zinc-800 rounded-lg p-3 text-[11px] text-zinc-400 leading-relaxed">
+            ✅ الأسعار تأتي مباشرة من Yahoo Finance<br>
+            ⏱️ التحديث التلقائي كل 60 ثانية<br>
+            🔄 الكاش 1 دقيقة لتجنب الإفراط في الطلبات<br>
+            📊 يدعم السوقين السعودي والأمريكي
+          </div>
+        ` : `
+          <div class="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 text-[11px] text-amber-200/80 leading-relaxed">
+            ⚠️ حالياً تستخدم بيانات تجريبية. فعّل الوضع الحي للحصول على أسعار حقيقية.
+          </div>
+        `}
+      </div>
+
+      <!-- DEPLOYMENT STATUS -->
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
+          <span class="w-1 h-5 bg-emerald-400 rounded-full"></span>
+          🚀 حالة النشر
+        </h3>
+        <div id="deployStatus" class="text-xs text-zinc-400">جاري الفحص...</div>
+      </div>
+
+      <!-- INFO -->
+      <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 space-y-3">
+        <h3 class="text-sm font-bold flex items-center gap-2">
+          <span class="w-1 h-5 bg-sky-400 rounded-full"></span>
+          ℹ️ معلومات المنصة
+        </h3>
+        <div class="space-y-2 text-xs text-zinc-300">
+          <div class="flex justify-between"><span class="text-zinc-500">الإصدار:</span><span class="mono">2.0 LIVE</span></div>
+          <div class="flex justify-between"><span class="text-zinc-500">الأسهم الافتراضية:</span><span class="mono">${SAUDI_STOCKS.length + US_STOCKS.length} سهم</span></div>
+          <div class="flex justify-between"><span class="text-zinc-500">الأسهم المخصصة:</span><span class="mono text-amber-400">${(state.customStocks.sa || []).length + (state.customStocks.us || []).length} سهم</span></div>
+          <div class="flex justify-between"><span class="text-zinc-500">المؤشرات:</span><span class="mono">8 + MACD</span></div>
+          <div class="flex justify-between"><span class="text-zinc-500">مصدر البيانات:</span><span class="mono">Yahoo Finance</span></div>
+        </div>
+      </div>
+
+      <div class="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4 text-[11px] text-rose-200/80 leading-relaxed">
+        <strong class="text-rose-400">⚠️ تنبيه:</strong>
+        المنصة للتعليم والتحليل فقط. لا تعتبر التوصيات هنا توصيات استثمارية. القرار النهائي مسؤوليتك.
+      </div>
+    </div>
+  `;
+}
+
+// ============ MAIN ============
+function render() {
+  let content = '';
+  if (state.tab === 'analyze') content = renderAnalyze();
+  else if (state.tab === 'scanner') content = renderScanner();
+  else if (state.tab === 'compare') content = renderCompare();
+  else if (state.tab === 'risk') content = renderRisk();
+  else if (state.tab === 'alerts') content = renderAlerts();
+  else if (state.tab === 'settings') content = renderSettings();
+
+  document.getElementById('app').innerHTML = renderHeader() + content;
+
+  const sel = document.getElementById('stockSel');
+  if (sel) sel.onchange = (e) => { state.code = e.target.value; state.custom = ''; render(); };
+
+  const search = document.getElementById('searchInput');
+  if (search) search.oninput = (e) => { state.search = e.target.value; render(); };
+
+  const ti = document.getElementById('toggleInput');
+  if (ti) ti.onclick = () => { state.showInput = !state.showInput; render(); };
+
+  const ac = document.getElementById('applyCustom');
+  if (ac) ac.onclick = () => { state.custom = document.getElementById('customInput').value; render(); };
+
+  const rsel = document.getElementById('riskStockSel');
+  if (rsel) rsel.onchange = (e) => { state.code = e.target.value; render(); };
+
+  const ci = document.getElementById('capitalInput');
+  if (ci) ci.onchange = (e) => { state.capital = parseInt(e.target.value) || 50000; render(); };
+
+  // Check deployment status on settings tab
+  if (state.tab === 'settings') {
+    fetch('/api/stock?symbol=AAPL').then(r => {
+      const ds = document.getElementById('deployStatus');
+      if (!ds) return;
+      if (r.ok) {
+        ds.innerHTML = `
+          <div class="flex items-center gap-2 mb-1"><span class="w-2 h-2 bg-emerald-400 rounded-full"></span><span class="text-emerald-400 font-bold">✅ منشور على Vercel</span></div>
+          <div class="text-zinc-500">API يعمل بشكل ممتاز</div>
+        `;
+      } else throw new Error();
+    }).catch(() => {
+      const ds = document.getElementById('deployStatus');
+      if (!ds) return;
+      ds.innerHTML = `
+        <div class="flex items-center gap-2 mb-1"><span class="w-2 h-2 bg-amber-400 rounded-full"></span><span class="text-amber-400 font-bold">⚠️ يعمل محلياً</span></div>
+        <div class="text-zinc-500 text-[11px] leading-relaxed">للحصول على أسعار حية، ارفع المشروع على Vercel كما في دليل README.md</div>
+      `;
+    });
+  }
+}
+
+function changeTab(t) { state.tab = t; render(); }
+function addCompare(c) { if (c && !state.compareCodes.includes(c) && state.compareCodes.length < 5) { state.compareCodes.push(c); render(); } }
+function removeCompare(c) { state.compareCodes = state.compareCodes.filter(x => x !== c); render(); }
+
+function toggleLive() {
+  state.liveMode = !state.liveMode;
+  localStorage.setItem('liveMode', state.liveMode);
+  if (state.liveMode) {
+    fetchLiveData(state.code).then(() => render());
+  }
+  render();
+}
+
+async function refreshLive(code) {
+  delete state.lastFetch[code];
+  delete state.liveCache[code];
+  if (state.liveMode) {
+    await fetchLiveData(code);
+  }
+  render();
+}
+
+async function scanAllLive() {
+  const stocks = getStocks();
+  for (const s of stocks) {
+    if (!state.liveCache[s.code]) {
+      await fetchLiveData(s.code);
+      render();
+      await new Promise(r => setTimeout(r, 200));
+    }
+  }
+}
+
+function addAlert(code, currentPrice) {
+  state.alerts.push({ code, type: 'above', price: parseFloat((currentPrice * 1.05).toFixed(2)) });
+  localStorage.setItem('priceAlerts', JSON.stringify(state.alerts));
+  state.tab = 'alerts';
+  render();
+}
+
+function saveAlert() {
+  const code = document.getElementById('alertStockSel').value;
+  const type = document.getElementById('alertType').value;
+  const price = parseFloat(document.getElementById('alertPrice').value);
+  if (!code || !type || !price) { alert('املأ كل الحقول'); return; }
+  state.alerts.push({ code, type, price });
+  localStorage.setItem('priceAlerts', JSON.stringify(state.alerts));
+  render();
+}
+
+function deleteAlert(i) {
+  state.alerts.splice(i, 1);
+  localStorage.setItem('priceAlerts', JSON.stringify(state.alerts));
+  render();
+}
+
+function addCustomStock() {
+  const codeInput = document.getElementById('newStockCode');
+  const nameInput = document.getElementById('newStockName');
+  const sectorInput = document.getElementById('newStockSector');
+  const arInput = document.getElementById('newStockAr');
+
+  let code = (codeInput?.value || '').trim().toUpperCase();
+  const name = (nameInput?.value || '').trim();
+  const sector = (sectorInput?.value || '').trim() || 'مخصص';
+  const ar = (arInput?.value || '').trim();
+
+  if (!code) { alert('⚠️ أدخل رمز السهم'); return; }
+  if (!name) { alert('⚠️ أدخل اسم الشركة'); return; }
+
+  // Auto-add .SR for Saudi stocks if not present
+  let yahoo = code;
+  if (state.market === 'sa' && !code.includes('.')) {
+    yahoo = code + '.SR';
+  }
+
+  // Check duplicates
+  const allStocks = [...SAUDI_STOCKS, ...US_STOCKS, ...(state.customStocks.sa || []), ...(state.customStocks.us || [])];
+  if (allStocks.find(s => s.code === code)) {
+    alert('⚠️ هذا السهم موجود بالفعل');
+    return;
+  }
+
+  // Generate seed from code for consistent demo data
+  let seed = 0;
+  for (let i = 0; i < code.length; i++) seed += code.charCodeAt(i) * (i + 1);
+
+  const newStock = {
+    code,
+    yahoo,
+    name,
+    sector,
+    base: 100, // default price for fallback
+    trend: 0.1,
+    vol: 1.5,
+    seed: seed % 1000,
+    isCustom: true,
+  };
+
+  if (state.market === 'us') newStock.ar = ar || name;
+  else newStock.en = ar || code;
+
+  if (!state.customStocks[state.market]) state.customStocks[state.market] = [];
+  state.customStocks[state.market].push(newStock);
+  localStorage.setItem('customStocks', JSON.stringify(state.customStocks));
+
+  // Switch to the new stock
+  state.code = code;
+  state.showAddStock = false;
+
+  // If live mode is on, fetch immediately
+  if (state.liveMode) {
+    fetchLiveData(code).then(() => render());
+  }
+
+  render();
+}
+
+function removeCustomStock(code) {
+  if (!confirm(`هل تريد حذف السهم ${code}؟`)) return;
+  state.customStocks[state.market] = (state.customStocks[state.market] || []).filter(s => s.code !== code);
+  localStorage.setItem('customStocks', JSON.stringify(state.customStocks));
+
+  // Clean up cache for this stock
+  delete state.liveCache[code];
+  delete state.lastFetch[code];
+
+  // If currently viewing this stock, switch to default
+  if (state.code === code) {
+    state.code = state.market === 'sa' ? '1120' : 'AAPL';
+  }
+
+  // Remove from compare list if present
+  state.compareCodes = state.compareCodes.filter(c => c !== code);
+
+  render();
+}
+
+render();
+
+// Auto-refresh live data every 60 seconds
+setInterval(() => {
+  if (state.liveMode && state.tab === 'analyze') {
+    fetchLiveData(state.code).then(() => render());
+  }
+}, 60000);
+</script>
+
+</body>
+</html>
