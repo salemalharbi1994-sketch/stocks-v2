@@ -1,7 +1,9 @@
 {
-  "name": "stock-platform",
+  "name": "stock-analysis-platform",
+  "version": "1.0.0",
+  "description": "منصة التحليل الفني - أسهم سعودية وأمريكية مع بيانات حية",
   "private": true,
   "engines": {
-    "node": "24.x"
+    "node": "22.x"
   }
 }
